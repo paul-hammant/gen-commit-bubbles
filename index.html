@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <!--
+       Copyright 2018 Paul Hammant
+
+       Licensed under the Apache License, Version 2.0 (the "License");
+       you may not use this file except in compliance with the License.
+       You may obtain a copy of the License at
+
+           http://www.apache.org/licenses/LICENSE-2.0
+
+       Unless required by applicable law or agreed to in writing, software
+       distributed under the License is distributed on an "AS IS" BASIS,
+       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+       See the License for the specific language governing permissions and
+       limitations under the License.
+    -->
+    <meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+    <meta content="utf-8" http-equiv="encoding">
+    <title id="title">Commit Bubbles</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.6.10/vue.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue-router/3.1.3/vue-router.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.9.1/underscore-min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue-resource@1.5.1"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.js"></script>
+</head>
+<body>
+    <div id="app">
+     <router-view></router-view>
+    </div>
+    <script type="text/x-template" id="bubbles-navigator">
+        <div class="date-select">
+          <button :disabled="disablePrev" @click="prevPressed">< prev</button>
+          <button @click="zoomOut" :disabled="!$route.params.month">-</button>
+            <select :disabled="!selectedYear"  @change="changeYear">
+            <option v-for="year in yearList" :value="year" :selected="year == selectedYear">
+                    {{ year }}
+            </option>
+            </select> 
+            <select :disabled="!selectedMonth" @change="changeMonth">
+                <option v-if="selectedMonth" v-for="month in monthList" :value="month"  :selected="month == selectedMonth">
+                    {{ month }}
+                </option>
+            </select>
+            <select :disabled="!selectedDay" @change="changeDay">
+                <option v-if="selectedDay" v-for="day in dayList" :value="day"  :selected="day == selectedDay">
+                    {{ day }}
+                </option>
+            </select>
+            <button @click="zoomIn" :disabled="$route.params.day">+</button>
+            <button :disabled="disableNext" @click="nextPressed">next ></button>
+        </div>
+    </script>
+    <script type="text/x-template" id="commit-bubbles-container">
+      <div>
+        <bubbles-navigator ref="nav"
+          v-bind:yearList=yearList
+          v-bind:monthList=monthList
+          v-bind:dayList=dayList
+          v-bind:selectedYear=$route.params.year
+          v-bind:selectedMonth=$route.params.month
+          v-bind:selectedDay=$route.params.day>
+
+        </bubbles-navigator>
+        <commit-bubbles-chart
+                v-bind:commits=commits
+                v-bind:baseURL=baseURL
+                v-bind:description=description
+                v-bind:selectedCommit=$route.params.commit
+                v-bind:selectCommit=changeCommit>
+        </commit-bubbles-chart>
+
+      </div>
+    </script>
+    <script type="text/x-template" id="commit-bubbles-chart">
+      <svg xmlns="http://www.w3.org/2000/svg" xmlns:xl="http://www.w3.org/1999/xlink" version="1.1" width="1220" 
+            :height="chartHeight + topMargin + 5">
+            <rect fill="#FEFCFF" x="100" :y="topMargin" width="1100" :height="chartHeight"
+                  @click="selectCommit(null)"/>
+            <g font-family="Verdana" font-size="16">
+                <text x="0" :y="topMargin + 8">All Test</text>
+                <text x="0" :y="chartHeight/2 + 5 + topMargin">Equal</text>
+                <text x="0" :y="chartHeight + topMargin">All Prod</text>
+                <text x="1140" :y="chartHeight/2 + 17 + topMargin">Time &#10148;</text>
+            </g>
+            <g style="stroke:rgb(0,0,0);stroke-width:1px">
+                <line x1="100" :y1="chartHeight/2 + topMargin" x2="1200" :y2="chartHeight/2 + topMargin"/>
+                <line x1="100" :y1="topMargin +2" x2="100" :y2="chartHeight + topMargin+2" />
+            </g>
+            <g font-family="Verdana" font-size="8" v-for="i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]"
+               style="stroke:rgb(0,0,0);stroke-width:1px">
+                <line v-if="i != 5" x1="100" stroke-dasharray="10,35"
+                      :y1="chartHeight + 2 - (chartHeight/10 * i) + topMargin" x2="1200"
+                      :y2="chartHeight - (chartHeight/10 * i) + topMargin"/>
+                <text fill="white" x="70" :y="chartHeight + 3  - (chartHeight/10 * i) + topMargin">{{100 -
+                    (10*i)}}:{{(10*i)}}
+                </text>
+            </g>
+            <g stroke="black">
+                <circle v-for="commit in commits" 
+                v-if="selected.authors.indexOf(commit.who) > -1"
+                        :cx="100 + (moment(commit.when) - from) * 1100 / ((to - from) + 0.00000000000000001)"
+                        :cy="chartHeight - (commit.pct * chartHeight/100) + topMargin"
+                        :r="Math.sqrt(commit.testable)"
+                        :stroke-opacity="(selected.commit === commit) ? 1 : 0"
+                        :fill="colors[authors.indexOf(commit.who)]" fill-opacity="0.5"
+                        @click="selectCommit(commit.id)"/>
+            </g>
+            <foreignObject class="node" x="0" y="0" width="1200" :height="topMargin">
+                <h2>Commits for {{description}}: {{timeSpan}} shown between {{from | date}} and {{to | date}}</h2>
+                <div>Show authors:
+                    <label v-for="author,index in authors" :style="'color:' + colors[index]">
+                        <input type="checkbox" :value="author"
+                                               :checked="(selected.authors).indexOf(author) > -1"
+                                               @change="showOrHideAuthor(author)"
+                               name="authors"> {{author}}
+                    </label>
+                    <button @click="checkAllAuthors()" style="margin: 0 0 5px 5px">All authors</button>
+                    <button @click="selected.authors = []" style="margin: 0 0 5px 5px">None
+                    </button>
+                </div>
+            </foreignObject>
+            <template v-if="selected.commit.id">
+                <g font-family="Verdana" font-size="16" @click="selectCommit(null)">
+                    <rect style="stroke:rgb(0,0,0);stroke-width:2px" x="300" y="300" height="300" width="500" fill="white"
+                          opacity="0.7"/>
+                    <text x="320" y="330">Selected Commit</text>
+                    <text x="320" y="380">ID: {{selected.commit.id}} <a target="_blank" :href="baseURL + selected.commit.id">🔗</a></text>
+                    <text x="320" y="430">Author: {{selected.commit.who}}</text>
+                    <text x="320" y="480">Date/Time: {{selected.commit.when | date2}}</text>
+                    <text x="320" y="530">Lines of code: {{selected.commit.test}} test, {{selected.commit.testable}} testable, {{selected.commit.all}} all</text>
+                    <text x="320" y="580">Test Percentage: {{selected.commit.pct}}% (test/testable)</text>
+                </g>
+            </template>
+        </svg>
+    </script>
+    <script>
+    var Navigator = Vue.component('bubbles-navigator', {
+        template: "#bubbles-navigator",
+        props: ['yearList','monthList','dayList','selectedYear','selectedMonth','selectedDay' ],
+        computed: {
+            disablePrev: function(){
+                return !this._rollFirstDimension(-1, this._noop, this._noop, this._noop) 
+            },
+            disableNext: function(){
+                return !this._rollFirstDimension(1, this._noop, this._noop, this._noop) 
+            },
+        },
+        methods: {
+            _noop: ()=>{},
+            _unwrapEvent: function(e){
+              return e == null ? e : e.target ? e.target.value : e;
+            }, 
+            _nav: function(route){
+              this.$router.push(route)
+            },
+            _rollDimension(currentCoord, dimension, count, rollAction){
+                if(currentCoord){
+                    var newIndex = dimension.indexOf(currentCoord)+count;
+                    return newIndex >= 0 && newIndex < dimension.length && !rollAction(dimension[newIndex]);
+                }
+            },
+            _rollFirstDimension: function(by, dayFn, monthFn, yearFn){
+                return this._rollDimension(this.selectedDay, this.dayList, by, dayFn) || 
+                       this._rollDimension(this.selectedMonth, this.monthList,by, monthFn) || 
+                       this._rollDimension(this.selectedYear, this.yearList,by, yearFn) 
+            },
+            zoomIn: function(){
+              if(!this.$route.params.month){
+                this.changeMonth(this.monthList[0]);
+                return;
+              }
+              if(!this.$route.params.day){
+                this.changeDay(this.dayList[0]);
+                return;
+              }
+            }, 
+            zoomOut: function(){
+                return this._nav({path: this.$route.path.substr(0, this.$route.path.lastIndexOf('/'))});
+            },
+            nextPressed: function() {
+               return this._rollFirstDimension(1, this.changeDay, this.changeMonth, this.changeYear);
+            },
+            prevPressed: function(){
+                return this._rollFirstDimension(-1, this.changeDay, this.changeMonth, this.changeYear);
+            },
+            changeYear: function(e){
+              var params = this.$route.params;
+              params.year = this._unwrapEvent(e);
+              delete params.commit;
+              this._nav( { name: 'bubble', params: params});
+            }, 
+            changeMonth: function(e){
+              var params = this.$route.params;
+              params.month = this._unwrapEvent(e);
+              delete params.commit;
+              this._nav( { name: 'bubble', params: params});
+            }, 
+            changeDay: function(e){
+              var params = this.$route.params;
+              params.day = this._unwrapEvent(e);
+              delete params.commit;
+              this._nav( { name: 'bubble', params: params});
+            },
+            changeCommit: function(e){
+              var params = this.$route.params;
+              params.commit = this._unwrapEvent(e);
+              this._nav( { name: 'bubble', params: params});
+            },
+        }
+      
+      });
+      var CommitBubblesChart = Vue.component('commit-bubbles-chart', {
+         template: "#commit-bubbles-chart",
+         props: ['commits', 'selectedCommit', 'selectCommit', 'baseURL', 'description'],
+         data: function(){
+           return {
+             show: false,
+             selected: {
+                 authors:[],
+                 commit:{}
+             },
+             chartHeight: 680,
+             topMargin: 100,
+             colors: ["#FFA07A", "#20B2AA", "#778899", "#B0C4DE", "#F5F5DC", "#00FF00", "#000000", "#32CD32", "#FAF0E6", "#0000FF", "#FF00FF", "#8A2BE2", "#800000", "#A52A2A", "#66CDAA", "#DEB887", "#0000CD", "#5F9EA0", "#7FFF00", "#9370DB", "#D2691E", "#FF7F50", "#7B68EE", "#6495ED", "#48D1CC", "#DC143C", "#C71585", "#00FFFF", "#191970", "#00008B", "#F5FFFA", "#008B8B", "#FFE4E1", "#B8860B", "#A9A9A9", "#006400", "#000080", "#BDB76B", "#8B008B", "#808000", "#6B8E23", "#FF8C00", "#FFA500", "#9932CC", "#FF4500", "#8B0000", "#DA70D6", "#E9967A", "#EEE8AA", "#8FBC8F", "#98FB98", "#483D8B", "#AFEEEE", "#2F4F4F", "#DB7093", "#00CED1", "#9400D3", "#FFDAB9", "#FF1493", "#CD853F", "#00BFFF", "#FFC0CB", "#696969", "#DDA0DD", "#1E90FF", "#B0E0E6", "#B22222", "#800080", "#FFFAF0", "#FF0000", "#228B22", "#BC8F8F", "#FF00FF", "#4169E1", "#DCDCDC", "#FA8072", "#FFD700", "#FAA460", "#DAA520", "#2E8B57", "#808080", "#008000", "#A0522D", "#ADFF2F", "#C0C0C0", "#87CEEB", "#FF69B4", "#6A5ACD", "#CD5C5C", "#708090", "#4B0082", "#00FF7F", "#F0E68C", "#4682B4", "#E6E6FA", "#D2B48C", "#008080", "#7CFC00", "#D8BFD8", "#FFFACD", "#FF6347", "#ADD8E6", "#40E0D0", "#F08080", "#EE82EE", "#F5DEB3", "#FAFAD2", "#90EE90", "#D3D3D3", "#FFFF00", "#FFB6C1"]
+            }
+         },
+         watch: {
+             commits: function(){
+                this.checkAllAuthors();
+             },
+             selectedCommit:function(){
+                var commit = this.commits.find((c) => c.id == this.selectedCommit);
+                if(commit){
+                    this.selected.commit = commit;
+                }else{
+                    this.selected.commit = {};
+                }
+             }
+         },
+         computed: {
+            authors: function() {
+                return _.uniq(_.pluck(this.commits, 'who'));
+            },
+            from: function() {
+                return _.min(_.map(this.commits, function (commit) {
+                    return moment(commit.when).format('X');
+                }))
+            },
+            to: function() {
+                return _.max(_.map(this.commits, function (commit) {
+                    return moment(commit.when).format('X');
+                }))
+            },
+            timeSpan: function() {
+                return moment.duration(moment.unix(this.from).diff(moment.unix(this.to))).humanize();
+            },
+         },
+         methods: {
+            moment: function(date) {
+                return moment(date).format('X');
+            },
+            checkAllAuthors: function () {
+              this.selected.authors = _.uniq(_.pluck(this.commits, 'who'))
+            },
+            showOrHideAuthor: function (author) {
+              if (this.selected.authors.indexOf(author) > -1) {
+                this.selected.authors.splice(this.selected.authors.indexOf(author), 1);
+              } else {
+                this.selected.authors.push(author);
+              }
+            },
+         },
+         filters: {
+           date: function (val) {
+            date = moment.unix(val);
+            return date.format('YYYY-MM-DD HH:mm')
+           },
+           date2: function (val) {
+             date = moment(val);
+             return date.format('YYYY-MM-DD HH:mm:ss Z')
+           }            
+         }
+       });
+        var CommitBubbleContainer = Vue.extend({
+          template: "#commit-bubbles-container",
+          data: function(){
+           return {
+            yearList: [],
+            monthList: [],
+            dayList: [],
+            show: false,
+            commits: []
+           }
+          },
+          methods: {
+            loadCommits: function () {
+                var url = this.$route.path.replace(/\d{4}\d+/,'');
+                this.$http.get("data/" + url + "/index.json").then(response => {
+                    this.commits = response.body.commits;
+							 document.getElementById("title").textContent = url.substring(1) + " Commit Bubbles"
+                    this.baseURL = response.body.baseURL;
+                    this.description = response.body.description;
+                }, response => {
+                    console.log("No list of commits document for " + this.selectedYear);
+                });
+            },
+            changeCommit: function(e){
+              this.$refs.nav.changeCommit(e);   
+            },
+            routeChanged: function(){
+              this.yearList, this.monthList, this.dayList = [];
+              if(!this.$route.params.year){
+                this.$refs.nav.changeYear(new Date().getFullYear());
+                return; 
+              }
+              this.selected =  { authors: _.uniq(_.pluck(this.commits, 'who'))};
+              this.loadCommits();
+              let self = this;
+              self.$http.get('data/years.json').then(function(response) {
+                    self.yearList = response.body.sort((a, b) => a-b);
+                    if (self.$route.params.year && self.yearList.indexOf(self.$route.params.year) < 0) {
+                        self.$refs.nav.changeYear(self.yearList[self.yearList.length -1]);
+                        return;
+                    }
+                    if(self.$route.params.year){
+                    self.$http.get("data/" + self.$route.params.year + "/months.json").then(function(response) {
+                        self.monthList = response.body.sort(function(a, b) {
+                            return parseInt(a) - parseInt(b);
+                        });
+                        if (self.$route.params.month && self.monthList.indexOf(self.$route.params.month) < 0) {
+                             self.$refs.nav.changeMonth(self.monthList[0]);
+                             return;
+                        }
+                        if(self.$route.params.month){
+                        self.$http.get("data/" + self.$route.params.year + "/" + self.$route.params.month + "/days.json").then(function(response) {
+                            self.dayList = response.body.sort(function(a, b) {
+                                return parseInt(a) - parseInt(b);
+                            });
+                            if (self.$route.params.day && self.dayList.indexOf(self.$route.params.day) < 0) {
+                                  self.$refs.nav.changeDay(self.dayList[0]);
+                                  return;
+                            }
+                        }, function(response) {
+                            console.log("Could not get days data");
+                        })
+                        }
+                    }, function(response) {
+                         console.log("Could not get months data");
+                    })}     
+                },
+                function(response) {
+                     console.log("Could not get years data");
+                })
+           }
+        },     
+        mounted: function() {
+            this.routeChanged();
+        },
+        watch: { '$route': 'routeChanged'}
+    });
+        var router = new VueRouter({
+          routes: [
+            { name: 'bubble', path: '/:year(\\d{4})?/:month(\\d\\d?)?/:day(\\d\\d?)?/:commit([0-9a-f]{40})?', component: CommitBubbleContainer, props:true },
+            { path: '*', redirect: '/' }
+          ]
+        })       
+        new Vue({
+          router,
+           components: {
+            'commit-bubbles-chart': CommitBubblesChart                   
+           }
+    }).$mount('#app')
+    </script>
+</body>
+</html>
