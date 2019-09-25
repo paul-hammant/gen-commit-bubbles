@@ -51,7 +51,6 @@ be some distance from 50:50.
 1. Slow loading - needs a loading interstitial
 2. Glitches in UI
 3. List of committers (and checkboxes for same) smushed if more than one line
-4. Aliases needed: eg. Steve Freeman for Hamcrest committed with several email addresses
 5. Adapt canvas to size of the web page
 
 ## Me?

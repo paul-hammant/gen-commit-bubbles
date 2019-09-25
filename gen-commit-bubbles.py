@@ -148,6 +148,9 @@ if 'description' not in cfg:
 if 'redactions' not in cfg:
     cfg["redactions"] = []
 
+if 'aliases' not in cfg:
+    cfg["aliases"] = []
+
 if 'testable-file-suffixes' not in cfg:
     print("'testable-file-suffixes' list needed in .commit-bubbles.yml")
     exit(1)
@@ -163,6 +166,12 @@ for commitLine in commits.split("\n"):
     who = " ".join(parts)
     for redaction in cfg['redactions']:
         who = who.replace(redaction, "")
+    for alias in cfg['aliases']:
+        preferred = alias.split(";")[0]
+        terms = alias.split(";")[1].split(",")
+        for term in terms:
+            if term in who:
+                who = preferred
     start = time.time()
     year = str(when.year)
     month = "%02d" % when.month
