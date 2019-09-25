@@ -51,7 +51,8 @@ be some distance from 50:50.
 1. Slow loading - needs a loading interstitial
 2. Glitches in UI
 3. List of committers (and checkboxes for same) smushed if more than one line
-5. Adapt canvas to size of the web page
+4. Adapt canvas to size of the web page
+5. Fix incorrect "author" for merge-commits
 
 ## Me?
 
