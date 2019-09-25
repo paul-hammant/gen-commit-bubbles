@@ -42,8 +42,9 @@ be some distance from 50:50.
 
 ## Prior work
 
-* [Angular Commit Bubbles](https://paulhammant.com/2014/10/30/angular-commit-bubbles/) - me, 2014
 * [Improving Developers Enthusiasm For Unit Tests Using Bubble Charts](http://jawspeak.com/2011/07/16/improving-developers-enthusiasm-for-unit-tests-using-bubble-charts/) - Jon Wolter, 2011
+* [Angular Commit Bubbles](https://paulhammant.com/2014/10/30/angular-commit-bubbles/) - me, 2014
+* [Older VueJS port of the 2014 AngularJS](https://github.com/paul-hammant/gen-commit-bubbles) - me with paid UpWorker help, 2018
 
 ## TODO
 
