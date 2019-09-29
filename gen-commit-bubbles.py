@@ -163,6 +163,9 @@ if 'description' not in cfg:
 if 'redactions' not in cfg:
     cfg["redactions"] = []
 
+if 'merge-commit-parents' not in cfg:
+    cfg["merge-commit-parents"] = False
+
 if 'aliases' not in cfg:
     cfg["aliases"] = []
 
@@ -177,19 +180,23 @@ print("Initial log...")
 commits = sh.git("log", "--pretty=format:%H", _tty_out=False)
 commits = commits.split("\n")
 
-print("Commits to process: " + str(len((commits))) + ", looking for missing parents...")
+print("Commits to process: " + str(len((commits))))
 
-newCommits = []
-for revHash in commits:
-    parents = sh.git("rev-list", "--parents", "-n", "1", revHash, _tty_out=False)
-    for parent in parents.strip().split(" "):
-        if parent not in commits:
-            print("new commit>" + parent + "<")
-            newCommits.append(parent)
+if cfg['merge-commit-parents']:
+    print("looking for missing parents...")
+    newCommits = []
+    for revHash in commits:
+        parents = sh.git("rev-list", "--parents", "-n", "1", revHash, _tty_out=False)
+        for parent in parents.strip().split(" "):
+            if parent not in commits:
+                print("new commit>" + parent + "<")
+                newCommits.append(parent)
 
-print("New commits to process: " + str(len((newCommits))) + ", Diffs for all...")
+    print("New commits to process: " + str(len((newCommits))))
 
-commits.extend(newCommits)
+    commits.extend(newCommits)
+
+print("Diffs for all commits...")
 
 for revHash in commits:
 

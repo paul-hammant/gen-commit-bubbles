@@ -8,3 +8,4 @@ testable-file-suffixes:
 aliases:
   - Fred;fred,Freddie,fflintstone
   - Barney;barney,rubble
+merge-commit-parents: false
