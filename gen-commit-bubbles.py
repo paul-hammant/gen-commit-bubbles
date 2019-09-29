@@ -60,12 +60,10 @@ def calcStatsForCommit(commit):
             tastableLineCount += addDelLineCount
             if istest:
                 testLineCount += addDelLineCount
-    if tastableLineCount > 0 or cfg['write_json_diffs']:
-        postStats(year + "/" + month + "/" + day, lineCount, testLineCount, tastableLineCount, revHash, who, when.isoformat())
-        postStats(year + "/" + month, lineCount, testLineCount, tastableLineCount, revHash, who, when.isoformat())
-        postStats(year, lineCount, testLineCount, tastableLineCount, revHash, who, when.isoformat())
-    if cfg['write_json_diffs']:
-        pass
+    isoformat = commit['when'].isoformat()
+    postStats(year + "/" + month + "/" + day, lineCount, testLineCount, tastableLineCount, revHash, commit['who'], isoformat)
+    postStats(year + "/" + month, lineCount, testLineCount, tastableLineCount, revHash, commit['who'], isoformat)
+    postStats(year, lineCount, testLineCount, tastableLineCount, revHash, commit['who'], isoformat)
 
     if testLineCount > 0:
         if year not in years:
@@ -98,7 +96,24 @@ def nextDiff(ix, diff):
 
 
 def parseChunks():
-    global ix, ix2
+
+    ix = diff.index("\nAuthor", 0)
+    ix2 = diff.index("\n", ix+1)
+    ix_ = diff[ix + 8: ix2]
+    commit['who'] = ix_.strip()
+
+    ix = diff.index("\nDate", 0)
+    ix2 = diff.index("\n", ix+1)
+    commit['when'] = parse(diff[ix + 6: ix2].strip())
+
+    ix = ix2 + 1
+    try:
+        ix2 = diff.index("\ndiff --git ", ix)
+    except ValueError:
+        ix2 = len(diff)
+
+    commit['msg'] = diff[ix: ix2].strip()
+
     while ix2 + 1 < len(diff):
         chunk = {}
         try:
@@ -157,64 +172,63 @@ if 'testable-file-suffixes' not in cfg:
 
 copyfile(sys.argv[0].replace("gen-commit-bubbles.py", "index.html"), metrics_path + "index.html")
 
-commits = sh.git("log", "--pretty=format:%H %ae %ad", "--date=iso-strict", _tty_out=False)
+print("Initial log...")
 
-for commitLine in commits.split("\n"):
-    parts = commitLine.split(" ")
-    revHash = parts.pop(0)
-    when = parse(parts.pop(-1))
-    who = " ".join(parts)
+commits = sh.git("log", "--pretty=format:%H", _tty_out=False)
+commits = commits.split("\n")
+
+print("Commits to process: " + str(len((commits))) + ", looking for missing parents...")
+
+newCommits = []
+for revHash in commits:
+    parents = sh.git("rev-list", "--parents", "-n", "1", revHash, _tty_out=False)
+    for parent in parents.strip().split(" "):
+        if parent not in commits:
+            print("new commit>" + parent + "<")
+            newCommits.append(parent)
+
+print("New commits to process: " + str(len((newCommits))) + ", Diffs for all...")
+
+commits.extend(newCommits)
+
+for revHash in commits:
+
+    commit = {}
+    commit['chunks'] = []
+    commit["hash"] = revHash
+
+    diff = sh.git("show", revHash, "--no-prefix", _tty_out=False, _encoding="iso-8859-1")
+    diff.wait()
+    diff = str(diff)
+
+    parseChunks()
+
     for redaction in cfg['redactions']:
-        who = who.replace(redaction, "")
+        commit['who'] = commit['who'].replace(redaction, "")
     for alias in cfg['aliases']:
         preferred = alias.split(";")[0]
         terms = alias.split(";")[1].split(",")
         for term in terms:
-            if term in who:
-                who = preferred
+            if term in commit['who']:
+                commit['who'] = preferred
+
     start = time.time()
-    year = str(when.year)
-    month = "%02d" % when.month
-    day = "%02d" % when.day
-    hour = "%02d" % when.hour
-    minute = "%02d" % when.minute
-    second = "%02d" % when.second
+    year = str(commit['when'].year)
+    month = "%02d" % commit['when'].month
+    day = "%02d" % commit['when'].day
+    hour = "%02d" % commit['when'].hour
+    minute = "%02d" % commit['when'].minute
+    second = "%02d" % commit['when'].second
     d = metrics_data_path + year + "/" + month + "/" + day + "/"
     f = d + hour + "-" + minute + "-" + second + "-"
     filepath = f + revHash + ".commit.json"
-    if (os.path.isfile(filepath)):
-        # print("Skip revision: " + str(revHash) + " duration: " + "%.2f" % ((time.time()-start)*1000) + "ms")
-        pass
-    else:
-        diff = sh.git("show", revHash, "--no-prefix", "--first-parent", _tty_out=False, _encoding="iso-8859-1")
-        diff.wait()
-        diff = str(diff)
 
-        commit = {}
-        commit["who"] = who
-        commit["when"] = when.isoformat()
-        commit["hash"] = revHash
-        commit['chunks'] = []
+    # print(json.dumps(commit, indent=2, default=jdefault))
 
-        ix = diff.index("\nDate: ")
-        ix = diff.index("\n", ix + 1)
+    if not os.path.isdir(d):
+        os.makedirs(d)
 
-        try:
-            ix2 = diff.index("\ndiff --git ")
-        except ValueError:
-            ix2 = len(diff)
-
-        msg = diff[ix + 1:ix2].strip()
-        commit['msg'] = msg
-
-        parseChunks()
-
-        # print(json.dumps(commit, indent=2, default=jdefault))
-
-        if not os.path.isdir(d):
-            os.makedirs(d)
-
-        calcStatsForCommit(commit)
+    calcStatsForCommit(commit)
 
 for statNum, path in enumerate(stats, start=1):
     with open(metrics_data_path + path + "/index.json", 'w') as statFile:
