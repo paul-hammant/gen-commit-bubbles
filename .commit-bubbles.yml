@@ -1,11 +1,22 @@
 description: hamcrest-java (master)
 base-diff-url: https://github.com/hamcrest/JavaHamcrest/commit/
-write-json-diffs: false
-redactions: 
-- "@2aa0e9f1-8e24-0410-adc4-1b6a3a6e65e2"
-testable-file-suffixes: 
+testable-file-suffixes:
 - .java
+
+# optional, to "git log" of local dir:
+# source-commits-from-file: /path/to/CR-delimited-SHA1s.txt
+
+# optional, defaults to false:
+write-json-diffs: false
+
+# optional:
+redactions:
+- "@2aa0e9f1-8e24-0410-adc4-1b6a3a6e65e2"
+
+# optional:
 aliases:
   - Fred;fred,Freddie,fflintstone
   - Barney;barney,rubble
+
+# optional, defaults to false:
 merge-commit-parents: false

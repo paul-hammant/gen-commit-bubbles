@@ -177,8 +177,12 @@ copyfile(sys.argv[0].replace("gen-commit-bubbles.py", "index.html"), metrics_pat
 
 print("Initial log...")
 
-commits = sh.git("log", "--pretty=format:%H", _tty_out=False)
-commits = commits.split("\n")
+if 'source-commits-from-file' not in cfg:
+    commits = sh.git("log", "--pretty=format:%H", _tty_out=False)
+    commits = commits.split("\n")
+else:
+    with open(cfg['source-commits-from-file'], 'r') as file:
+        commits = file.read().split("\n")
 
 print("Commits to process: " + str(len((commits))))
 
