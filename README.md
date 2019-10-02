@@ -21,7 +21,7 @@ You can put the generated HTML app online or not - your choice
 
 ## Examples of output
 
-I have seven example reports online (GitHub Pages), linking to notable years:
+I have nine example charts online using GitHub-Pages:
 
 1. Java version of Hamcrest (a library for better tests): [commit-bubbles-examples/hamcrestjava/#/2008](https://paul-hammant.github.io/commit-bubbles-examples/hamcrestjava/#/2008)
 2. XStream (Java object graph <--> XML): [commit-bubbles-examples/xstream/#/2007](https://paul-hammant.github.io/commit-bubbles-examples/xstream/#/2007)
@@ -30,6 +30,8 @@ I have seven example reports online (GitHub Pages), linking to notable years:
 5. Angular (famous TypeScript web framework): [commit-bubbles-examples/angular/](https://paul-hammant.github.io/commit-bubbles-examples/angular)
 6. JUnit 1, 2, 3 & 4 (legendary testing framework): [commit-bubbles-examples/junit4/](https://paul-hammant.github.io/commit-bubbles-examples/junit4)
 7. JUnit 5 (legendary testing framework cont'd): [commit-bubbles-examples/junit5/](https://paul-hammant.github.io/commit-bubbles-examples/junit5)
+8. Flask (famous Python web framework): [commit-bubbles-examples/flask/](https://paul-hammant.github.io/commit-bubbles-examples/flask)
+9. Sinatra (famous Ruby web framework): [commit-bubbles-examples/sinatra/](https://paul-hammant.github.io/commit-bubbles-examples/sinatra)
 
 The Angular charts take 12 mins to generate (python) and have way too much data to be be used for decision making. They will 
 also render after a delay (15 seconds of JavaScript in the browser). There's a full circle aspect to that though, and Miško 

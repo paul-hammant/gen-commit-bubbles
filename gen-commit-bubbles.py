@@ -102,8 +102,6 @@ def parseChunks():
     ix2 = diff.index("\n", ix+1)
     ix_ = diff[ix + 8: ix2]
     commit['who'] = ix_.strip()
-    #commit['who'] = ix_.strip().encode('latin-1').decode('unicode_escape').decode('unicode_escape')\
-    #    .encode('latin-1').decode('utf-8')
 
     simplifyCommiterID()
 
