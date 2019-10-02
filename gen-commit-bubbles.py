@@ -60,6 +60,7 @@ def calcStatsForCommit(commit):
             tastableLineCount += addDelLineCount
             if istest:
                 testLineCount += addDelLineCount
+
     isoformat = commit['when'].isoformat()
     postStats(year + "/" + month + "/" + day, lineCount, testLineCount, tastableLineCount, revHash, commit['who'], isoformat)
     postStats(year + "/" + month, lineCount, testLineCount, tastableLineCount, revHash, commit['who'], isoformat)
@@ -101,6 +102,10 @@ def parseChunks():
     ix2 = diff.index("\n", ix+1)
     ix_ = diff[ix + 8: ix2]
     commit['who'] = ix_.strip()
+    #commit['who'] = ix_.strip().encode('latin-1').decode('unicode_escape').decode('unicode_escape')\
+    #    .encode('latin-1').decode('utf-8')
+
+    simplifyCommiterID()
 
     ix = diff.index("\nDate", 0)
     ix2 = diff.index("\n", ix+1)
@@ -131,13 +136,27 @@ def parseChunks():
         commit['chunks'].append(chunk)
 
 
+def simplifyCommiterID():
+    for redaction in cfg['redactions']:
+        commit['who'] = commit['who'].replace(redaction, "")
+    if ' <' in commit['who']:
+        beforeEmail = commit['who'].split(" <")[0]
+        upperCt = 0
+        nameParts = beforeEmail.split(" ")
+        for namePart in nameParts:
+            if len(namePart) > 0 and namePart[0].isupper():
+                upperCt += 1
+        if upperCt > 1:
+            commit['who'] = beforeEmail
+
+
 stats = {}
 years = []
 yearMonths = {}
 yearMonthDays = {}
 
 if len(sys.argv) == 1:
-    print("Arg 1 is the path to the repo (checkout) for the metrics")
+    print("Arg 1 is the path to the repo (a checkout possibly) and dir for the generated metrics.")
     exit(1)
 
 metrics_path = sys.argv[1]
@@ -157,7 +176,7 @@ if 'base-diff-url' not in cfg:
     cfg["base-diff-url"] = "https://github.com/?/?/commit/"
 
 if 'description' not in cfg:
-    print("'description' list needed in .commit-bubbles.yml")
+    print("'description' list needed in " + metrics_path + ".commit-bubbles.yml")
     exit(1)
 
 if 'redactions' not in cfg:
@@ -175,6 +194,7 @@ if 'testable-file-suffixes' not in cfg:
 
 copyfile(sys.argv[0].replace("gen-commit-bubbles.py", "index.html"), metrics_path + "index.html")
 
+print("Target directory: " + metrics_path)
 print("Initial log...")
 
 if 'source-commits-from-file' not in cfg:
@@ -208,14 +228,16 @@ for revHash in commits:
     commit['chunks'] = []
     commit["hash"] = revHash
 
-    diff = sh.git("show", revHash, "--no-prefix", _tty_out=False, _encoding="iso-8859-1")
+    diff = sh.git("show", revHash, "--no-prefix", _tty_out=False, _encoding="utf-8")
     diff.wait()
-    diff = str(diff)
+    try:
+        diff = str(diff)
+    except UnicodeDecodeError:
+        print("git-show UnicodeDecodeError for " + revHash)
+        continue
 
     parseChunks()
 
-    for redaction in cfg['redactions']:
-        commit['who'] = commit['who'].replace(redaction, "")
     for alias in cfg['aliases']:
         preferred = alias.split(";")[0]
         terms = alias.split(";")[1].split(",")
