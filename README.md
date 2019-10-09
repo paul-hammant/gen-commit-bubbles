@@ -46,9 +46,16 @@ be some distance from 50:50.
 
 ## Prior work
 
-* [Improving Developers Enthusiasm For Unit Tests Using Bubble Charts](http://jawspeak.com/2011/07/16/improving-developers-enthusiasm-for-unit-tests-using-bubble-charts/) - Jon Wolter, 2011
+* [Improving Developers Enthusiasm For Unit Tests Using Bubble Charts](http://jawspeak.com/2011/07/16/improving-developers-enthusiasm-for-unit-tests-using-bubble-charts/) - Jon Wolter on Misko Hevery's Google in-house creation, 2011
 * [Angular Commit Bubbles](https://paulhammant.com/2014/10/30/angular-commit-bubbles/) - me, 2014
 * [Older VueJS port of the 2014 AngularJS](https://github.com/paul-hammant/gen-commit-bubbles) - me with paid UpWorker help, 2018
+
+## Misko Hevery's Google in-house creation
+
+![image](https://user-images.githubusercontent.com/82182/66465999-d828b680-ea79-11e9-8163-583cb4d7ef5f.png)
+
+Misko can't remember which Google dev team this was for, unfortunately. The commits gravitate to the 50:50 line, meaning that the team 
+had a habit of doing commits that contained both (not alternating prod-code commit, test-code commit). Interesting, but hard to find replicated elsewhere. At least elsewhere in open-source-land.
 
 ## TODO
 
@@ -56,7 +63,6 @@ be some distance from 50:50.
 2. Glitches in UI
 3. List of committers (and checkboxes for same) smushed if more than one line
 4. Adapt canvas to size of the web page
-5. Fix incorrect "author" for merge-commits
 
 ## Me?
 
